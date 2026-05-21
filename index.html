@@ -1,0 +1,293 @@
+```html
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ফ্রি ডায়াবেটিস মেডিকেল ক্যাম্প - পেশেন্ট ট্র্যাকার</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Noto Sans Bengali -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans Bengali', sans-serif;
+            background-color: #f0f4f8;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+    <!-- Top Navigation Bar -->
+    <nav class="bg-teal-700 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div class="flex items-center gap-3">
+                <div class="bg-white text-teal-700 p-2 rounded-full h-10 w-10 flex items-center justify-center font-bold text-xl">
+                    <i class="fa-solid fa-droplet"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">ফ্রি ডায়াবেটিস মেডিকেল ক্যাম্প</h1>
+                    <p class="text-xs text-teal-100 font-light">তারিখ: ২২ মে, ২০২৬ (শুক্রবার)</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="triggerCSVExport()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-medium px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 shadow-md">
+                    <i class="fa-solid fa-file-excel"></i> এক্সেল (CSV) ডাউনলোড
+                </button>
+                <button onclick="clearAllDataPrompt()" class="bg-red-500 hover:bg-red-600 text-white font-medium px-3 py-2 rounded-lg text-sm transition flex items-center gap-1 shadow-md">
+                    <i class="fa-solid fa-trash-can"></i> ডাটা মুছুন
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl mx-auto px-4 py-6">
+
+        <!-- Stat Widgets Dashboard -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <!-- Total Patients Card -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-teal-500 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 font-semibold">মোট পরীক্ষিত রোগী</p>
+                    <p id="stat-total" class="text-2xl font-bold text-teal-700 mt-1">০ জন</p>
+                </div>
+                <div class="bg-teal-50 text-teal-600 p-3 rounded-lg text-xl hidden sm:block">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+            </div>
+            <!-- High Sugar Card -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-amber-500 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 font-semibold">উচ্চ শর্বরা (High)</p>
+                    <p id="stat-high" class="text-2xl font-bold text-amber-600 mt-1">০ জন</p>
+                </div>
+                <div class="bg-amber-50 text-amber-600 p-3 rounded-lg text-xl hidden sm:block">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+            </div>
+            <!-- Critical Card -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-rose-500 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 font-semibold">বিপজ্জনক (Critical)</p>
+                    <p id="stat-critical" class="text-2xl font-bold text-rose-600 mt-1">০ জন</p>
+                </div>
+                <div class="bg-rose-50 text-rose-600 p-3 rounded-lg text-xl hidden sm:block">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                </div>
+            </div>
+            <!-- Normal Card -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-emerald-500 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 font-semibold">স্বাভাবিক (Normal)</p>
+                    <p id="stat-normal" class="text-2xl font-bold text-emerald-600 mt-1">০ জন</p>
+                </div>
+                <div class="bg-emerald-50 text-emerald-600 p-3 rounded-lg text-xl hidden sm:block">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Side: Registration Form (Col Span 5) -->
+            <div class="lg:col-span-5 bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                <div class="flex items-center gap-2 pb-4 mb-4 border-b border-gray-100">
+                    <i class="fa-solid fa-id-card text-teal-600 text-lg"></i>
+                    <h2 class="text-lg font-bold text-gray-800">রোগীর নতুন এন্ট্রি ফরম</h2>
+                </div>
+
+                <form id="patientForm" onsubmit="savePatient(event)" class="space-y-4">
+                    <!-- Patient Name -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1" for="name">রোগীর নাম <span class="text-red-500">*</span></label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fa-solid fa-user"></i>
+                            </span>
+                            <input type="text" id="name" required placeholder="উদা: আবুল হাসেম" 
+                                class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Patient Address -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1" for="address">রোগীর ঠিকানা</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fa-solid fa-location-dot"></i>
+                            </span>
+                            <input type="text" id="address" placeholder="উদা: শেরপুর, বগুড়া" 
+                                class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Age & Weight Grid -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1" for="age">বয়স (বছর) <span class="text-red-500">*</span></label>
+                            <input type="number" id="age" required min="1" max="120" placeholder="উদা: ৪৫" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1" for="weight">ওজন (কেজি)</label>
+                            <input type="number" id="weight" step="0.1" min="5" max="200" placeholder="উদা: ৬৫" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Contact Details (Optional) -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-semibold text-gray-700" for="phone">মোবাইল নম্বর</label>
+                            <span class="text-xs text-gray-400 font-normal">ঐচ্ছিক</span>
+                        </div>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fa-solid fa-phone"></i>
+                            </span>
+                            <input type="tel" id="phone" placeholder="উদা: 017XXXXXXXX" pattern="[0-9]{11}" title="১১ ডিজিটের মোবাইল নম্বর দিন"
+                                class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                        </div>
+                    </div>
+
+                    <div class="border-t border-gray-100 pt-3 my-1"></div>
+
+                    <!-- MULTIPLE GLUCOSE LEVELS -->
+                    <div>
+                        <span class="block text-sm font-bold text-teal-700 mb-2"><i class="fa-solid fa-dna mr-1"></i> গ্লুকোজ লেভেল (mmol/L) <span class="text-red-500 text-xs font-normal">(অন্তত ১টি লিখুন)</span></span>
+                        <div class="grid grid-cols-3 gap-2">
+                            <!-- Fasting -->
+                            <div>
+                                <label class="block text-[11px] font-semibold text-gray-600 mb-1 text-center" for="glucoseFasting">খালি পেটে (Fasting)</label>
+                                <input type="number" id="glucoseFasting" step="0.1" min="1" max="45" placeholder="Fasting" oninput="calculateSugarStatus()"
+                                    class="w-full text-center px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                            </div>
+                            <!-- PostPrandial -->
+                            <div>
+                                <label class="block text-[11px] font-semibold text-gray-600 mb-1 text-center" for="glucosePostPrandial">খাওয়ার পর (PP)</label>
+                                <input type="number" id="glucosePostPrandial" step="0.1" min="1" max="45" placeholder="PP" oninput="calculateSugarStatus()"
+                                    class="w-full text-center px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                            </div>
+                            <!-- Random -->
+                            <div>
+                                <label class="block text-[11px] font-semibold text-gray-600 mb-1 text-center" for="glucoseRandom">র‍্যান্ডম (Random)</label>
+                                <input type="number" id="glucoseRandom" step="0.1" min="1" max="45" placeholder="Random" oninput="calculateSugarStatus()"
+                                    class="w-full text-center px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calculated Live Status Indicator -->
+                    <div class="bg-gray-50 p-3 rounded-lg flex flex-col gap-1.5 text-xs transition duration-200" id="live-indicator-box">
+                        <span class="font-bold text-gray-600 border-b border-gray-200 pb-1">গ্লুকোজের অবস্থা:</span>
+                        <div id="live-indicator-details" class="space-y-1">
+                            <p class="text-gray-400 italic">মানগুলো টাইপ করলে এখানে লাইভ স্ট্যাটাস দেখতে পাবেন।</p>
+                        </div>
+                    </div>
+
+                    <!-- Prescription & Doctor's Notes -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1" for="prescription">ব্যবস্থাপত্র / পরামর্শ ও ওষুধ</label>
+                        <textarea id="prescription" rows="3" placeholder="ওষুধের নাম, ডোজ, এবং অন্যান্য প্রয়োজনীয় পরামর্শ এখানে লিখুন..." 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"></textarea>
+                    </div>
+
+                    <!-- CAMERA & GALLERY INPUT ATTACHMENTS (COMPRESSION ADDED) -->
+                    <div class="space-y-2 border-t border-gray-100 pt-3">
+                        <label class="block text-sm font-semibold text-gray-700">ব্যবস্থাপত্র / রিপোর্টের ছবি (ঐচ্ছিক)</label>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <!-- Direct Gallery Input -->
+                            <label class="cursor-pointer flex items-center gap-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 rounded-lg px-3 py-2 text-xs font-semibold transition shadow-sm">
+                                <i class="fa-solid fa-images text-sm text-teal-600"></i> গ্যালারি থেকে আনুন
+                                <input type="file" id="prescriptionImg" accept="image/*" class="hidden" onchange="handleImageUpload(event, 'gallery')">
+                            </label>
+                            
+                            <!-- Direct Mobile Camera Input -->
+                            <label class="cursor-pointer flex items-center gap-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-lg px-3 py-2 text-xs font-semibold transition shadow-sm">
+                                <i class="fa-solid fa-camera text-sm text-sky-600"></i> ক্যামেরা দিয়ে ছবি তুলুন
+                                <input type="file" id="prescriptionCameraImg" accept="image/*" capture="environment" class="hidden" onchange="handleImageUpload(event, 'camera')">
+                            </label>
+
+                            <!-- Remove Image Button -->
+                            <button type="button" id="removeImgBtn" onclick="removeUploadedImage()" class="hidden text-red-500 hover:text-red-700 text-xs font-bold flex items-center gap-1 transition ml-1">
+                                <i class="fa-solid fa-trash-can"></i> ছবি সরান
+                            </button>
+                        </div>
+                        <!-- Form Image Preview -->
+                        <div id="formImgPreviewContainer" class="hidden border border-dashed border-gray-300 rounded-xl p-2 bg-gray-50 max-w-[120px] relative mt-2">
+                            <img id="formImgPreview" src="" alt="Prescription Preview" class="w-full h-auto rounded-lg">
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex gap-2 pt-2">
+                        <button type="submit" id="submit-btn" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-md">
+                            <i class="fa-solid fa-floppy-disk"></i> ডাটা সংরক্ষণ করুন
+                        </button>
+                        <button type="button" onclick="resetForm()" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg text-sm transition">
+                            রিসেট
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Right Side: Patient List (Col Span 7) -->
+            <div class="lg:col-span-7 bg-white rounded-2xl shadow-sm p-6 border border-gray-100 flex flex-col">
+                <!-- List Header & Search Filters -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 mb-4 border-b border-gray-100">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-address-book text-teal-600 text-lg"></i>
+                        <h2 class="text-lg font-bold text-gray-800">নিবন্ধিত রোগীর তালিকা (<span id="patient-count">০</span>)</h2>
+                    </div>
+                    <!-- Mini Filter Pills -->
+                    <div class="flex flex-wrap gap-1">
+                        <button onclick="filterStatus('All')" id="filter-all" class="px-2.5 py-1 text-xs font-bold rounded-full bg-teal-600 text-white border border-teal-600 shadow-sm">সব</button>
+                        <button onclick="filterStatus('Critical')" id="filter-critical" class="px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 border border-transparent hover:bg-gray-200">বিপজ্জনক</button>
+                        <button onclick="filterStatus('High')" id="filter-high" class="px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 border border-transparent hover:bg-gray-200">উচ্চ</button>
+                        <button onclick="filterStatus('Normal')" id="filter-normal" class="px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 border border-transparent hover:bg-gray-200">স্বাভাবিক</button>
+                    </div>
+                </div>
+
+                <!-- Search Input -->
+                <div class="relative mb-4">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" id="searchInput" oninput="searchPatients()" placeholder="নাম, ঠিকানা বা আইডি দিয়ে খুঁজুন..." 
+                        class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm">
+                </div>
+
+                <!-- Table / List Wrapper -->
+                <div class="flex-1 overflow-y-auto max-h-[550px] pr-1">
+                    <!-- Grid of Patient Cards for Mobile, Table for Desktop -->
+                    <div class="block md:hidden space-y-3" id="mobile-cards-container">
+                        <!-- Mobile Cards Injection -->
+                    </div>
+
+                    <div class="hidden md:block overflow-x-auto rounded-lg border border-gray-200">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">আইডি</th>
+                                    <th class="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">নাম ও বিবরণ</th>
+                                    <th class="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">মোবাইল</th>
+                                    <th class="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">গ্লুকোজ রেকর্ড সমূহ</th>
+                                    <th class="px-3 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">অ্যাকশন</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200 text-xs" id="desktop-table-body">
+                                <!-- Desktop Table Rows Injection -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- No Data State -->
+                    <div id="no-data-element" class="flex flex-col items-center justify-center py-12 text-gray-400">
+                        <i class="fa-solid fa-folder-open text-5xl mb-3"></i>
+                        <p class="text-sm font-semibold">কোনো রোগীর তথ্য খুঁজে পাওয়া যায়নি!</p>
+            
