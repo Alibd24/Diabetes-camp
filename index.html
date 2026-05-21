@@ -289,4 +289,849 @@
                     <div id="no-data-element" class="flex flex-col items-center justify-center py-12 text-gray-400">
                         <i class="fa-solid fa-folder-open text-5xl mb-3"></i>
                         <p class="text-sm font-semibold">কোনো রোগীর তথ্য খুঁজে পাওয়া যায়নি!</p>
+                        <p class="text-xs text-gray-400 mt-1">বামদিকের ফর্ম ব্যবহার করে নতুন রোগী নিবন্ধন করুন।</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Custom Modal for Patient Details / Prescription -->
+    <div id="detailModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 transition-all duration-300">
+        <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden transform scale-95 transition-all duration-300 flex flex-col max-h-[90vh]">
+            <!-- Modal Header -->
+            <div class="bg-teal-700 text-white px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-hospital-user text-lg"></i>
+                    <h3 class="text-lg font-bold">রোগীর বিস্তারিত রেকর্ড</h3>
+                </div>
+                <button onclick="closeModal()" class="text-white/80 hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <!-- Modal Body -->
+            <div class="p-6 overflow-y-auto space-y-4 text-sm" id="modal-content">
+                <!-- Dynamic Content Injection -->
+            </div>
+            <!-- Modal Footer -->
+            <div class="bg-gray-50 px-6 py-3 flex justify-between gap-2 border-t border-gray-100">
+                <button onclick="editPatientFromModal()" class="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-4 py-2 rounded-lg text-xs transition flex items-center gap-1">
+                    <i class="fa-solid fa-pen-to-square"></i> এডিট করুন
+                </button>
+                <button onclick="closeModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold px-4 py-2 rounded-lg text-xs transition">
+                    বন্ধ করুন
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Zoom View Modal -->
+    <div id="imageZoomModal" class="fixed inset-0 bg-black/90 hidden items-center justify-center z-[60] p-4 cursor-zoom-out" onclick="closeZoomModal()">
+        <div class="relative max-w-4xl w-full h-full flex items-center justify-center">
+            <button class="absolute top-4 right-4 text-white text-3xl hover:text-gray-300 transition" onclick="closeZoomModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <img id="zoomedImage" src="" alt="Prescription Photo Zoomed" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl">
+        </div>
+    </div>
+
+    <!-- Alert Dialog Modals -->
+    <div id="alertDialog" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl max-w-sm w-full p-6 shadow-xl text-center space-y-4">
+            <div id="alert-icon" class="text-red-500 text-4xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 id="alert-title" class="text-lg font-bold text-gray-800">আপনি কি নিশ্চিত?</h3>
+            <p id="alert-text" class="text-sm text-gray-500">এই অ্যাকশনটি বিপরীত করা সম্ভব নয়।</p>
+            <div class="flex justify-center gap-3 pt-2">
+                <button id="alert-confirm-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold px-4 py-2 rounded-lg text-xs transition">হ্যাঁ, ডিলিট করুন</button>
+                <button onclick="closeAlertDialog()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded-lg text-xs transition">বাতিল</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50 text-sm">
+        <span id="toast-icon" class="text-emerald-400 text-base"><i class="fa-solid fa-circle-check"></i></span>
+        <span id="toast-message">সফলভাবে সম্পন্ন হয়েছে!</span>
+    </div>
+
+    <!-- Javascript Logical Controller -->
+    <script>
+        // State variables
+        let patients = [];
+        let currentFilter = 'All';
+        let searchQuery = '';
+        let selectedPatientId = null;
+        let isEditing = false;
+        let editingId = null;
+        let uploadedImgBase64 = ""; // Holds the base64 string of the uploaded file
+
+        // On Load initialization
+        window.addEventListener('DOMContentLoaded', () => {
+            loadPatientsFromLocalStorage();
+            updateDashboard();
+        });
+
+        // Load data from LocalStorage
+        function loadPatientsFromLocalStorage() {
+            const data = localStorage.getItem('diabetic_camp_patients');
+            if (data) {
+                try {
+                    patients = JSON.parse(data);
+                } catch (e) {
+                    patients = [];
+                    showToast('ডাটা লোড করতে সমস্যা হয়েছে!', 'rose');
+                }
+            } else {
+                patients = [];
+            }
+        }
+
+        // Save data to LocalStorage
+        function savePatientsToLocalStorage() {
+            try {
+                localStorage.setItem('diabetic_camp_patients', JSON.stringify(patients));
+            } catch (e) {
+                // If local storage is full due to images
+                showToast('মেমোরি ফুল হয়ে গেছে! অতিরিক্ত ছবি ডিলিট করুন।', 'rose');
+            }
+        }
+
+        // Handle Image Upload Action with Automatic Compression (Optimized for Storage & CSV export)
+        function handleImageUpload(e, source) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            showToast('ছবি প্রসেস ও কম্প্রেশন করা হচ্ছে...', 'amber');
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const img = new Image();
+                img.onload = function() {
+                    // Create an offline Canvas to resize and compress the image
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const max_size = 800; // Constrain to max 800px dimension for excel safety and speed
+
+                    if (width > height) {
+                        if (width > max_size) {
+                            height *= max_size / width;
+                            width = max_size;
+                        }
+                    } else {
+                        if (height > max_size) {
+                            width *= max_size / height;
+                            height = max_size;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Convert to compressed JPEG data URL (quality factor: 0.6)
+                    uploadedImgBase64 = canvas.toDataURL('image/jpeg', 0.6);
+                    
+                    // Show form image preview dynamically
+                    const previewContainer = document.getElementById('formImgPreviewContainer');
+                    const previewImg = document.getElementById('formImgPreview');
+                    const removeBtn = document.getElementById('removeImgBtn');
+                    
+                    previewImg.src = uploadedImgBase64;
+                    previewContainer.classList.remove('hidden');
+                    removeBtn.classList.remove('hidden');
+                    
+                    const typeText = source === 'camera' ? 'ক্যামেরা দিয়ে তোলা ছবি' : 'গ্যালারির ছবি';
+                    showToast(`${typeText} কম্প্রেসড ও যুক্ত হয়েছে!`, 'emerald');
+                };
+                img.src = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Remove Selected/Uploaded Image from form state
+        function removeUploadedImage() {
+            uploadedImgBase64 = "";
+            document.getElementById('prescriptionImg').value = "";
+            document.getElementById('prescriptionCameraImg').value = "";
+            document.getElementById('formImgPreviewContainer').classList.add('hidden');
+            document.getElementById('formImgPreview').src = "";
+            document.getElementById('removeImgBtn').classList.add('hidden');
+            showToast('ছবি মুছে ফেলা হয়েছে।', 'amber');
+        }
+
+        // Calculate Sugar Level Status (Normal, Prediabetes, High, Critical)
+        function determineStatus(type, value) {
+            const val = parseFloat(value);
+            if (isNaN(val) || value === '' || value === null) {
+                return null;
+            }
+
+            // Critical low checking (Hypoglycemia is very dangerous)
+            if (val < 4.0) {
+                return { text: 'বিপজ্জনক নিম্ন শর্করা (Critical Low)', class: 'bg-rose-100 text-rose-800 border border-rose-300', badgeClass: 'bg-rose-100 text-rose-800 font-bold', label: 'Critical' };
+            }
+
+            if (type === 'Fasting') { // খালি পেটে স্বাভাবিক সীমা ৪.০ থেকে ৫.৫ mmol/L
+                if (val >= 4.0 && val <= 5.5) {
+                    return { text: 'স্বাভাবিক শর্করা (Normal)', class: 'bg-emerald-100 text-emerald-800 border border-emerald-300', badgeClass: 'bg-emerald-100 text-emerald-800', label: 'Normal' };
+                } else if (val > 5.5 && val <= 6.9) {
+                    return { text: 'প্রাক-ডায়াবেটিস (Pre-diabetes)', class: 'bg-amber-100 text-amber-800 border border-amber-300', badgeClass: 'bg-amber-100 text-amber-800', label: 'High' };
+                } else {
+                    return { text: 'উচ্চ ডায়াবেটিস (Diabetic / Critical)', class: 'bg-rose-100 text-rose-800 border border-rose-300', badgeClass: 'bg-rose-100 text-rose-800', label: 'Critical' };
+                }
+            } else { // Random / PostPrandial (স্বাভাবিক সীমা ৭.৮ mmol/L এর নিচে)
+                if (val >= 4.0 && val < 7.8) {
+                    return { text: 'স্বাভাবিক (Normal)', class: 'bg-emerald-100 text-emerald-800 border border-emerald-300', badgeClass: 'bg-emerald-100 text-emerald-800', label: 'Normal' };
+                } else if (val >= 7.8 && val <= 11.0) {
+                    return { text: 'প্রাক-ডায়াবেটিস (Pre-diabetes)', class: 'bg-amber-100 text-amber-800 border border-amber-300', badgeClass: 'bg-amber-100 text-amber-800', label: 'High' };
+                } else {
+                    return { text: 'বিপজ্জনক উচ্চ শর্করা (Critical)', class: 'bg-rose-100 text-rose-800 border border-rose-300', badgeClass: 'bg-rose-100 text-rose-800', label: 'Critical' };
+                }
+            }
+        }
+
+        // Live status calculation in the form (Shows status of all entered values)
+        function calculateSugarStatus() {
+            const fastingVal = document.getElementById('glucoseFasting').value;
+            const postPrandialVal = document.getElementById('glucosePostPrandial').value;
+            const randomVal = document.getElementById('glucoseRandom').value;
+            const detailsBox = document.getElementById('live-indicator-details');
+            const containerBox = document.getElementById('live-indicator-box');
+
+            if (!fastingVal && !postPrandialVal && !randomVal) {
+                detailsBox.innerHTML = '<p class="text-gray-400 italic">মানগুলো টাইপ করলে এখানে লাইভ স্ট্যাটাস দেখতে পাবেন।</p>';
+                containerBox.className = 'bg-gray-50 p-3 rounded-lg flex flex-col gap-1.5 text-xs';
+                return;
+            }
+
+            let statusHTML = '';
+            let worstLabel = 'Normal'; // Priority Tracker: Normal < High < Critical
+
+            const checkFasting = determineStatus('Fasting', fastingVal);
+            if (checkFasting) {
+                statusHTML += `<div>খালি পেটে (Fasting): <span class="px-2 py-0.5 rounded-full font-bold ${checkFasting.class}">${fastingVal} mmol/L → ${checkFasting.text}</span></div>`;
+                if (checkFasting.label === 'Critical') worstLabel = 'Critical';
+                else if (checkFasting.label === 'High' && worstLabel !== 'Critical') worstLabel = 'High';
+            }
+
+            const checkPP = determineStatus('PostPrandial', postPrandialVal);
+            if (checkPP) {
+                statusHTML += `<div>খাওয়ার পর (PP): <span class="px-2 py-0.5 rounded-full font-bold ${checkPP.class}">${postPrandialVal} mmol/L → ${checkPP.text}</span></div>`;
+                if (checkPP.label === 'Critical') worstLabel = 'Critical';
+                else if (checkPP.label === 'High' && worstLabel !== 'Critical') worstLabel = 'High';
+            }
+
+            const checkRandom = determineStatus('Random', randomVal);
+            if (checkRandom) {
+                statusHTML += `<div>র‍্যান্ডম (Random): <span class="px-2 py-0.5 rounded-full font-bold ${checkRandom.class}">${randomVal} mmol/L → ${checkRandom.text}</span></div>`;
+                if (checkRandom.label === 'Critical') worstLabel = 'Critical';
+                else if (checkRandom.label === 'High' && worstLabel !== 'Critical') worstLabel = 'High';
+            }
+
+            detailsBox.innerHTML = statusHTML;
+
+            // Box Styling matching worst reading
+            if (worstLabel === 'Normal') {
+                containerBox.className = 'bg-emerald-50 p-3 rounded-lg flex flex-col gap-1.5 text-xs transition duration-200 border border-emerald-200';
+            } else if (worstLabel === 'High') {
+                containerBox.className = 'bg-amber-50 p-3 rounded-lg flex flex-col gap-1.5 text-xs transition duration-200 border border-amber-200';
+            } else if (worstLabel === 'Critical') {
+                containerBox.className = 'bg-rose-50 p-3 rounded-lg flex flex-col gap-1.5 text-xs transition duration-200 border border-rose-200';
+            }
+        }
+
+        // Save Patient function (Insert / Update)
+        function savePatient(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('name').value.trim();
+            const address = document.getElementById('address').value.trim();
+            const age = parseInt(document.getElementById('age').value);
+            const weight = document.getElementById('weight').value ? parseFloat(document.getElementById('weight').value) : null;
+            const phone = document.getElementById('phone').value.trim();
+            const prescription = document.getElementById('prescription').value.trim();
+
+            // Readings retrieval
+            const fastingVal = document.getElementById('glucoseFasting').value;
+            const postPrandialVal = document.getElementById('glucosePostPrandial').value;
+            const randomVal = document.getElementById('glucoseRandom').value;
+
+            // Validation: Must enter at least one glucose reading
+            if (!fastingVal && !postPrandialVal && !randomVal) {
+                showToast('অনুগ্রহ করে অন্তত ১টি গ্লুকোজ লেভেল রিডিং প্রদান করুন!', 'rose');
+                return;
+            }
+
+            const statusFasting = determineStatus('Fasting', fastingVal);
+            const statusPostPrandial = determineStatus('PostPrandial', postPrandialVal);
+            const statusRandom = determineStatus('Random', randomVal);
+
+            // Calculate Overall/Worst Status Label
+            let worstLabel = 'Normal';
+            const allStatuses = [statusFasting, statusPostPrandial, statusRandom].filter(s => s !== null);
+            if (allStatuses.some(s => s.label === 'Critical')) {
+                worstLabel = 'Critical';
+            } else if (allStatuses.some(s => s.label === 'High')) {
+                worstLabel = 'High';
+            }
+
+            if (isEditing) {
+                // Update operation
+                const index = patients.findIndex(p => p.id === editingId);
+                if (index !== -1) {
+                    patients[index] = {
+                        ...patients[index],
+                        name,
+                        address,
+                        age,
+                        weight,
+                        phone,
+                        glucoseFasting: fastingVal ? parseFloat(fastingVal) : null,
+                        glucosePostPrandial: postPrandialVal ? parseFloat(postPrandialVal) : null,
+                        glucoseRandom: randomVal ? parseFloat(randomVal) : null,
+                        statusFasting,
+                        statusPostPrandial,
+                        statusRandom,
+                        worstLabel,
+                        prescription,
+                        prescriptionImg: uploadedImgBase64,
+                    };
+                    showToast('রোগীর তথ্য সফলভাবে আপডেট করা হয়েছে!', 'emerald');
+                }
+                isEditing = false;
+                editingId = null;
+                document.getElementById('submit-btn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> ডাটা সংরক্ষণ করুন';
+            } else {
+                // Insert operation
+                const newPatient = {
+                    id: 'PT-' + Date.now().toString().slice(-6),
+                    name,
+                    address,
+                    age,
+                    weight,
+                    phone,
+                    glucoseFasting: fastingVal ? parseFloat(fastingVal) : null,
+                    glucosePostPrandial: postPrandialVal ? parseFloat(postPrandialVal) : null,
+                    glucoseRandom: randomVal ? parseFloat(randomVal) : null,
+                    statusFasting,
+                    statusPostPrandial,
+                    statusRandom,
+                    worstLabel,
+                    prescription,
+                    prescriptionImg: uploadedImgBase64,
+                    timestamp: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })
+                };
+                patients.unshift(newPatient); // Add new patient at top of list
+                showToast('নতুন রোগীর তথ্য সংরক্ষণ করা হয়েছে!', 'emerald');
+            }
+
+            savePatientsToLocalStorage();
+            resetForm();
+            updateDashboard();
+        }
+
+        // Reset form to normal state
+        function resetForm() {
+            document.getElementById('patientForm').reset();
+            isEditing = false;
+            editingId = null;
+            document.getElementById('submit-btn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> ডাটা সংরক্ষণ করুন';
             
+            // Remove image files and states
+            removeUploadedImage();
+
+            // Trigger UI reset for indicator
+            calculateSugarStatus();
+        }
+
+        // Dashboard stats update & lists render trigger
+        function updateDashboard() {
+            const total = patients.length;
+            const high = patients.filter(p => p.worstLabel === 'High').length;
+            const critical = patients.filter(p => p.worstLabel === 'Critical').length;
+            const normal = patients.filter(p => p.worstLabel === 'Normal').length;
+
+            document.getElementById('stat-total').innerText = total + ' জন';
+            document.getElementById('stat-high').innerText = high + ' জন';
+            document.getElementById('stat-critical').innerText = critical + ' জন';
+            document.getElementById('stat-normal').innerText = normal + ' জন';
+
+            document.getElementById('patient-count').innerText = total;
+
+            renderPatientLists();
+        }
+
+        // Render Patient Lists for both Desktop and Mobile viewports
+        function renderPatientLists() {
+            const tableBody = document.getElementById('desktop-table-body');
+            const cardsContainer = document.getElementById('mobile-cards-container');
+            const noDataElement = document.getElementById('no-data-element');
+
+            tableBody.innerHTML = '';
+            cardsContainer.innerHTML = '';
+
+            // Apply filters (search and status filter)
+            const filteredPatients = patients.filter(p => {
+                const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      (p.address && p.address.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                                      p.phone.includes(searchQuery) ||
+                                      p.id.toLowerCase().includes(searchQuery.toLowerCase());
+                const matchesFilter = currentFilter === 'All' || p.worstLabel === currentFilter;
+                return matchesSearch && matchesFilter;
+            });
+
+            if (filteredPatients.length === 0) {
+                noDataElement.classList.remove('hidden');
+                return;
+            } else {
+                noDataElement.classList.add('hidden');
+            }
+
+            // Loop to populate components
+            filteredPatients.forEach(p => {
+                // Address and Mobile fallbacks
+                let addressDisplay = p.address ? p.address : 'উল্লেখ নেই';
+                let phoneDisplay = p.phone ? p.phone : '<span class="text-gray-400 italic">দেওয়া হয়নি</span>';
+
+                // Icons for indicators
+                let imageIndicator = p.prescriptionImg ? '<span class="ml-1 text-teal-600" title="ছবি সংযোজিত"><i class="fa-solid fa-paperclip"></i></span>' : '';
+
+                // Generate HTML list of glucose levels
+                let glucoseBadgesHTML = '<div class="flex flex-wrap gap-1.5">';
+                if (p.glucoseFasting !== null && p.glucoseFasting !== undefined) {
+                    glucoseBadgesHTML += `<span class="px-1.5 py-0.5 rounded text-[11px] font-semibold ${p.statusFasting?.badgeClass || 'bg-gray-100'}">Fasting: ${p.glucoseFasting}</span>`;
+                }
+                if (p.glucosePostPrandial !== null && p.glucosePostPrandial !== undefined) {
+                    glucoseBadgesHTML += `<span class="px-1.5 py-0.5 rounded text-[11px] font-semibold ${p.statusPostPrandial?.badgeClass || 'bg-gray-100'}">PP: ${p.glucosePostPrandial}</span>`;
+                }
+                if (p.glucoseRandom !== null && p.glucoseRandom !== undefined) {
+                    glucoseBadgesHTML += `<span class="px-1.5 py-0.5 rounded text-[11px] font-semibold ${p.statusRandom?.badgeClass || 'bg-gray-100'}">Random: ${p.glucoseRandom}</span>`;
+                }
+                glucoseBadgesHTML += '</div>';
+
+                // 1. Populate Desktop Table
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition duration-150';
+                tr.innerHTML = `
+                    <td class="px-3 py-3 whitespace-nowrap font-mono text-xs text-gray-500 font-semibold">${p.id}</td>
+                    <td class="px-3 py-3">
+                        <div class="text-sm font-semibold text-gray-900 flex items-center gap-1">${p.name} ${imageIndicator}</div>
+                        <div class="text-[11px] text-gray-500">বয়স: ${p.age} বছর | ঠিকানা: ${addressDisplay} ${p.weight ? `| ওজন: ${p.weight} কেজি` : ''}</div>
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-xs text-gray-600 font-mono">${phoneDisplay}</td>
+                    <td class="px-3 py-3">${glucoseBadgesHTML}</td>
+                    <td class="px-3 py-3 whitespace-nowrap text-right text-xs space-x-1">
+                        <button onclick="viewDetails('${p.id}')" class="p-1.5 bg-teal-50 text-teal-700 hover:bg-teal-100 rounded-lg transition" title="বিস্তারিত দেখুন">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                        <button onclick="prepareEdit('${p.id}')" class="p-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg transition" title="এডিট">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button onclick="deletePatientPrompt('${p.id}')" class="p-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg transition" title="ডিলিট">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+
+                // 2. Populate Mobile Grid Cards
+                const card = document.createElement('div');
+                card.className = 'bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-3';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="max-w-[70%]">
+                            <span class="text-xs font-semibold font-mono bg-teal-50 text-teal-800 px-2 py-0.5 rounded-md">${p.id}</span>
+                            <h4 class="font-bold text-gray-900 mt-1 flex items-center gap-1.5">${p.name} ${imageIndicator}</h4>
+                            <p class="text-xs text-gray-500 mt-0.5">ঠিকানা: ${addressDisplay}</p>
+                            <p class="text-[11px] text-gray-400 mt-0.5">বয়স: ${p.age} বছর ${p.weight ? `| ওজন: ${p.weight} কেজি` : ''}</p>
+                        </div>
+                        <div class="text-right">
+                           <span class="text-[10px] font-bold text-gray-400 uppercase">Worst Level</span>
+                           <div class="text-xs font-bold mt-1 px-2 py-0.5 rounded-full ${p.worstLabel === 'Critical' ? 'bg-rose-100 text-rose-800' : (p.worstLabel === 'High' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800')}">${p.worstLabel}</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50/50 p-2.5 rounded-lg border border-gray-100">
+                        <p class="text-[10px] font-bold text-gray-500 mb-1.5 uppercase">রেকর্ডকৃত মানসমূহ:</p>
+                        ${glucoseBadgesHTML}
+                    </div>
+                    <div class="flex justify-between items-center text-xs text-gray-600 pt-2 border-t border-gray-100">
+                        <div>
+                            <i class="fa-solid fa-phone text-gray-400 mr-1"></i> ${p.phone ? p.phone : 'দেওয়া হয়নি'}
+                        </div>
+                        <div class="space-x-1">
+                            <button onclick="viewDetails('${p.id}')" class="px-2.5 py-1 bg-teal-50 text-teal-700 rounded-md font-semibold">বিস্তারিত</button>
+                            <button onclick="prepareEdit('${p.id}')" class="px-2 py-1 bg-amber-50 text-amber-700 rounded-md font-semibold"><i class="fa-solid fa-pencil"></i></button>
+                            <button onclick="deletePatientPrompt('${p.id}')" class="px-2 py-1 bg-rose-50 text-rose-700 rounded-md"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                `;
+                cardsContainer.appendChild(card);
+            });
+        }
+
+        // Live Search query updater
+        function searchPatients() {
+            searchQuery = document.getElementById('searchInput').value;
+            renderPatientLists();
+        }
+
+        // Filter Pills Trigger
+        function filterStatus(status) {
+            currentFilter = status;
+            
+            // Visual Active state for pill buttons
+            const filters = ['All', 'Critical', 'High', 'Normal'];
+            filters.forEach(f => {
+                const button = document.getElementById(`filter-${f.toLowerCase()}`);
+                if (f === status) {
+                    button.className = 'px-2.5 py-1 text-xs font-bold rounded-full bg-teal-600 text-white border border-teal-600 shadow-sm';
+                } else {
+                    button.className = 'px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 border border-transparent hover:bg-gray-200';
+                }
+            });
+
+            renderPatientLists();
+        }
+
+        // View Detail Modal Manager
+        function viewDetails(id) {
+            selectedPatientId = id;
+            const patient = patients.find(p => p.id === id);
+            if (!patient) return;
+
+            let weightText = patient.weight ? `${patient.weight} কেজি` : 'দেওয়া হয়নি';
+            let phoneText = patient.phone ? patient.phone : 'দেওয়া হয়নি';
+            let addressText = patient.address ? patient.address : 'দেওয়া হয়নি';
+            let prescriptionText = patient.prescription ? patient.prescription.replace(/\n/g, '<br>') : '<span class="text-gray-400 italic">কোনো ওষুধ বা পরামর্শ সংরক্ষণ করা হয়নি।</span>';
+
+            // Generate HTML representation for patient details modal
+            let glucoseDetailsHTML = '';
+            if (patient.glucoseFasting !== null && patient.glucoseFasting !== undefined) {
+                glucoseDetailsHTML += `
+                <div class="flex justify-between items-center text-xs pb-1.5 border-b border-gray-100">
+                    <span>খালি পেটে (Fasting):</span>
+                    <span class="px-2 py-0.5 rounded font-bold ${patient.statusFasting?.class}">${patient.glucoseFasting} mmol/L (${patient.statusFasting?.text})</span>
+                </div>`;
+            }
+            if (patient.glucosePostPrandial !== null && patient.glucosePostPrandial !== undefined) {
+                glucoseDetailsHTML += `
+                <div class="flex justify-between items-center text-xs pb-1.5 border-b border-gray-100">
+                    <span>খাওয়ার পর (Post-Prandial):</span>
+                    <span class="px-2 py-0.5 rounded font-bold ${patient.statusPostPrandial?.class}">${patient.glucosePostPrandial} mmol/L (${patient.statusPostPrandial?.text})</span>
+                </div>`;
+            }
+            if (patient.glucoseRandom !== null && patient.glucoseRandom !== undefined) {
+                glucoseDetailsHTML += `
+                <div class="flex justify-between items-center text-xs">
+                    <span>র‍্যান্ডম (Random):</span>
+                    <span class="px-2 py-0.5 rounded font-bold ${patient.statusRandom?.class}">${patient.glucoseRandom} mmol/L (${patient.statusRandom?.text})</span>
+                </div>`;
+            }
+
+            // Picture attachment viewer
+            let imageSectionHTML = '';
+            if (patient.prescriptionImg) {
+                imageSectionHTML = `
+                    <div class="space-y-1.5 mt-3 pt-3 border-t border-gray-100">
+                        <p class="text-xs text-gray-400 font-semibold uppercase"><i class="fa-solid fa-image text-teal-600 mr-1"></i> সংযুক্ত ব্যবস্থাপত্র / টেস্ট রিপোর্ট</p>
+                        <div class="relative group mt-1">
+                            <img src="${patient.prescriptionImg}" alt="Prescription Photo" class="w-full max-h-56 object-contain rounded-xl border border-gray-200 cursor-pointer hover:opacity-95 transition" onclick="zoomImage('${patient.prescriptionImg}')">
+                            <div class="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded-md pointer-events-none">
+                                <i class="fa-solid fa-magnifying-glass-plus"></i> বড় করে দেখুন
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const modalContent = document.getElementById('modal-content');
+            modalContent.innerHTML = `
+                <div class="grid grid-cols-2 gap-4 pb-3 border-b border-gray-100">
+                    <div>
+                        <p class="text-xs text-gray-400 font-semibold uppercase">রোগীর আইডি</p>
+                        <p class="font-mono font-bold text-teal-800">${patient.id}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 font-semibold uppercase">রেজিস্ট্রেশন সময়</p>
+                        <p class="font-bold text-gray-700">${patient.timestamp || '১২:০০ PM'}</p>
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-xs text-gray-400 font-semibold uppercase">রোগীর নাম ও ঠিকানা</p>
+                    <p class="text-base font-bold text-gray-900">${patient.name}</p>
+                    <p class="text-xs text-gray-600 flex items-center gap-1"><i class="fa-solid fa-location-dot text-gray-400"></i> ${addressText}</p>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <p class="text-xs text-gray-400 font-semibold uppercase">বয়স</p>
+                        <p class="font-bold text-gray-800">${patient.age} বছর</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 font-semibold uppercase">ওজন</p>
+                        <p class="font-bold text-gray-800">${weightText}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 font-semibold uppercase font-mono">মোবাইল</p>
+                        <p class="font-semibold text-gray-800 font-mono text-xs">${phoneText}</p>
+                    </div>
+                </div>
+                <div class="bg-teal-50/50 p-4 rounded-xl space-y-2 border border-teal-100">
+                    <p class="text-xs text-teal-700 font-bold uppercase"><i class="fa-solid fa-heart-pulse mr-1"></i> ডায়াবেটিস পরীক্ষার বিবরণ</p>
+                    <div class="space-y-2 pt-1">
+                        ${glucoseDetailsHTML}
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-xs text-gray-400 font-semibold uppercase"><i class="fa-solid fa-receipt text-amber-500 mr-1"></i> চিকিৎসকের ব্যবস্থাপত্র ও পরামর্শ</p>
+                    <div class="bg-amber-50/50 p-3 rounded-lg border border-amber-100 min-h-[80px] text-gray-700 leading-relaxed text-xs">
+                        ${prescriptionText}
+                    </div>
+                </div>
+                ${imageSectionHTML}
+            `;
+
+            // Open Modal
+            const modal = document.getElementById('detailModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }, 50);
+        }
+
+        // Image Zoom Modal Controllers
+        function zoomImage(src) {
+            const zoomModal = document.getElementById('imageZoomModal');
+            const zoomedImg = document.getElementById('zoomedImage');
+            zoomedImg.src = src;
+            zoomModal.classList.remove('hidden');
+            zoomModal.classList.add('flex');
+        }
+
+        function closeZoomModal() {
+            const zoomModal = document.getElementById('imageZoomModal');
+            zoomModal.classList.add('hidden');
+            zoomModal.classList.remove('flex');
+        }
+
+        // Close Modal
+        function closeModal() {
+            const modal = document.getElementById('detailModal');
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }, 150);
+        }
+
+        // Edit triggers from table list or details modal
+        function prepareEdit(id) {
+            closeModal();
+            const patient = patients.find(p => p.id === id);
+            if (!patient) return;
+
+            // Load data back to form
+            document.getElementById('name').value = patient.name;
+            document.getElementById('address').value = patient.address || '';
+            document.getElementById('age').value = patient.age;
+            document.getElementById('weight').value = patient.weight || '';
+            document.getElementById('phone').value = patient.phone || '';
+            
+            // Load 3 glucose inputs back
+            document.getElementById('glucoseFasting').value = (patient.glucoseFasting !== null && patient.glucoseFasting !== undefined) ? patient.glucoseFasting : '';
+            document.getElementById('glucosePostPrandial').value = (patient.glucosePostPrandial !== null && patient.glucosePostPrandial !== undefined) ? patient.glucosePostPrandial : '';
+            document.getElementById('glucoseRandom').value = (patient.glucoseRandom !== null && patient.glucoseRandom !== undefined) ? patient.glucoseRandom : '';
+            
+            document.getElementById('prescription').value = patient.prescription || '';
+
+            // Handle image reload back to form state
+            if (patient.prescriptionImg) {
+                uploadedImgBase64 = patient.prescriptionImg;
+                const previewContainer = document.getElementById('formImgPreviewContainer');
+                const previewImg = document.getElementById('formImgPreview');
+                const removeBtn = document.getElementById('removeImgBtn');
+                
+                previewImg.src = uploadedImgBase64;
+                previewContainer.classList.remove('hidden');
+                removeBtn.classList.remove('hidden');
+            } else {
+                removeUploadedImage();
+            }
+
+            // Update flags
+            isEditing = true;
+            editingId = id;
+            document.getElementById('submit-btn').innerHTML = '<i class="fa-solid fa-pencil-square"></i> তথ্য হালনাগাদ করুন';
+
+            // Recalculate status indicator inside form
+            calculateSugarStatus();
+
+            // Smooth scroll up to form on mobile viewports
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast('তথ্য ফর্ম-এ লোড হয়েছে, সংশোধন করে সংরক্ষণ করুন।', 'amber');
+        }
+
+        // Edit wrapper from open modal
+        function editPatientFromModal() {
+            if (selectedPatientId) {
+                prepareEdit(selectedPatientId);
+            }
+        }
+
+        // Trigger Patient Delete Dialog
+        let patientIdToDelete = null;
+        function deletePatientPrompt(id) {
+            patientIdToDelete = id;
+            const p = patients.find(x => x.id === id);
+            if (!p) return;
+
+            document.getElementById('alert-title').innerText = `${p.name}-এর রেকর্ড মুছবেন?`;
+            document.getElementById('alert-text').innerText = `আপনি কি নিশ্চিত যে আপনি রোগীর আইডি ${p.id} এর সম্পূর্ণ রেকর্ড মুছে ফেলতে চান?`;
+            
+            const btn = document.getElementById('alert-confirm-btn');
+            btn.onclick = executePatientDelete;
+            btn.className = "bg-red-500 hover:bg-red-600 text-white font-bold px-4 py-2 rounded-lg text-xs transition";
+            btn.innerText = "হ্যাঁ, ডিলিট করুন";
+
+            const dialog = document.getElementById('alertDialog');
+            dialog.classList.remove('hidden');
+            dialog.classList.add('flex');
+        }
+
+        // Execute Patient Delete
+        function executePatientDelete() {
+            if (patientIdToDelete) {
+                patients = patients.filter(p => p.id !== patientIdToDelete);
+                savePatientsToLocalStorage();
+                updateDashboard();
+                closeAlertDialog();
+                showToast('রোগীর রেকর্ড সফলভাবে ডিলিট করা হয়েছে।', 'rose');
+                patientIdToDelete = null;
+            }
+        }
+
+        // Trigger All Data Clear Dialog
+        function clearAllDataPrompt() {
+            if (patients.length === 0) {
+                showToast('কোনো ডাটা পাওয়া যায়নি!', 'amber');
+                return;
+            }
+            document.getElementById('alert-title').innerText = "সকল তথ্য ডিলিট করবেন?";
+            document.getElementById('alert-text').innerText = "ক্যাম্পের সকল রোগীর সংরক্ষিত রেকর্ড স্থায়ীভাবে মুছে যাবে। ডাটা হারানোর পূর্বে এক্সেল শিট ডাউনলোড করে রেখেছেন তো?";
+            
+            const btn = document.getElementById('alert-confirm-btn');
+            btn.onclick = executeAllClear;
+            btn.className = "bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition";
+            btn.innerText = "হ্যাঁ, সব মুছুন";
+
+            const dialog = document.getElementById('alertDialog');
+            dialog.classList.remove('hidden');
+            dialog.classList.add('flex');
+        }
+
+        // Execute All clear
+        function executeAllClear() {
+            patients = [];
+            savePatientsToLocalStorage();
+            updateDashboard();
+            closeAlertDialog();
+            showToast('সকল ডাটা সফলভাবে মুছে ফেলা হয়েছে!', 'rose');
+        }
+
+        // Close Dialog Alert
+        function closeAlertDialog() {
+            const dialog = document.getElementById('alertDialog');
+            dialog.classList.add('hidden');
+            dialog.classList.remove('flex');
+        }
+
+        // Universal CSV Exporter (UPDATED: Saves Base64 Image Link directly into CSV cell)
+        function triggerCSVExport() {
+            if (patients.length === 0) {
+                showToast('ডাউনলোড করার জন্য কোনো রোগীর তথ্য নেই!', 'amber');
+                return;
+            }
+
+            // CSV Headings definition (Includes prescription base64 image link column)
+            let csvContent = "পেশেন্ট আইডি,নাম,বয়স,ঠিকানা,ওজন (কেজি),মোবাইল নাম্বার,খালি পেটে (Fasting),Fasting অবস্থা,খাওয়ার পর (PP),PP অবস্থা,র‍্যান্ডম (Random),Random অবস্থা,সামগ্রিক ঝুঁকি লেভেল,ব্যবস্থাপত্র ইমেজ লিংক/ডাটা (Base64 URL),ব্যবস্থাপত্র/ওষুধের বিবরণ\n";
+
+            // Map data to CSV Rows
+            patients.forEach(p => {
+                let fastingVal = p.glucoseFasting !== null ? p.glucoseFasting : 'N/A';
+                let fastingStatus = p.statusFasting ? p.statusFasting.text : 'N/A';
+                
+                let ppVal = p.glucosePostPrandial !== null ? p.glucosePostPrandial : 'N/A';
+                let ppStatus = p.statusPostPrandial ? p.statusPostPrandial.text : 'N/A';
+
+                let randomVal = p.glucoseRandom !== null ? p.glucoseRandom : 'N/A';
+                let randomStatus = p.statusRandom ? p.statusRandom.text : 'N/A';
+
+                let weight = p.weight ? p.weight : 'N/A';
+                let addressCleaned = p.address ? p.address.replace(/"/g, '""') : 'N/A';
+                let phoneCleaned = p.phone ? p.phone : 'N/A';
+                
+                // Save the base64 image string as the clickable data url
+                let imageBase64Link = p.prescriptionImg ? p.prescriptionImg : 'N/A';
+                
+                let prescriptionCleaned = p.prescription ? p.prescription.replace(/"/g, '""').replace(/\n/g, ' | ') : 'N/A';
+
+                csvContent += `"${p.id}","${p.name}","${p.age}","${addressCleaned}","${weight}","${phoneCleaned}","${fastingVal}","${fastingStatus}","${ppVal}","${ppStatus}","${randomVal}","${randomStatus}","${p.worstLabel}","${imageBase64Link}","${prescriptionCleaned}"\n`;
+            });
+
+            // Handle UTF-8 encoding so Excel can properly read Bengali text characters
+            const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            
+            // File Name Setup
+            const today = new Date().toISOString().slice(0,10);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Diabetes_Camp_Multi_Record_${today}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast('এক্সেল (CSV) ডাউনলোড সফল হয়েছে!', 'emerald');
+        }
+
+        // Toast Feedback Manager
+        function showToast(message, colorClass = 'teal') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const msg = document.getElementById('toast-message');
+
+            msg.innerText = message;
+            
+            // Styling based on color profiles
+            if (colorClass === 'emerald') {
+                icon.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+                icon.className = 'text-emerald-400';
+            } else if (colorClass === 'amber') {
+                icon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+                icon.className = 'text-amber-400';
+            } else if (colorClass === 'rose') {
+                icon.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i>';
+                icon.className = 'text-rose-400';
+            }
+
+            // Bring Toast View to Screen
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
